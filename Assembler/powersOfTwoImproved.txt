@@ -14,7 +14,7 @@ loop_inc:
  CMPZ
  JNE loop_inc
 
- LDB 10h
+ LDB 02h
 loop_dec: 
  POPA
  OUTA
