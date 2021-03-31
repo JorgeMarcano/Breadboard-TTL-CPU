@@ -1,0 +1,9 @@
+start:
+LDA 65h
+OUTA
+STA 5a5ah
+LDA 00h
+OUTA
+LRA 5a5ah
+OUTA
+JMP start

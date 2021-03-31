@@ -1,0 +1,19 @@
+@BASEADDR 0080h
+
+loop:
+LDB 01h
+JMP continue
+LDA 01h
+continue:
+OUTA
+JMP loop
+
+@BASEADDR 0160h
+
+loop2:
+LDB 01h
+JMP continue2
+LDA 01h
+continue2:
+OUTA
+JMP loop2

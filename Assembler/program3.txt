@@ -1,0 +1,9 @@
+; Test of include file
+ADD
+ADD
+
+@INCLUDE program2.txt
+
+ADD
+ADD
+ADD

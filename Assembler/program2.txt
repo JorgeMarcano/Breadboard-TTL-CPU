@@ -1,0 +1,124 @@
+
+
+@ALIAS One 01h
+
+LDB 01h
+LDA 01h
+OUTA
+start:
+ADD
+OUTA
+MAC
+MBA
+JMP continue
+
+@BASEADDR 0080h
+
+@ALIAS Number_Two 02h
+LDB Number_Two
+MCB
+JMP start
+LDB 01h
+LDA 01h
+OUTA
+JMP continue
+ADD
+OUTA
+MAC
+continue:
+MBA
+JMP continue
+MCB
+JMP start
+
+@ALIAS One 01h
+
+LDB 01h
+LDA 01h
+OUTA
+start2:
+ADD
+OUTA
+MAC
+MBA
+JMP continue2
+
+@ALIAS Number_Two 02h
+LDB Number_Two
+MCB
+JMP start2
+LDB 01h
+LDA 01h
+OUTA
+JMP continue2
+ADD
+OUTA
+MAC
+continue2:
+MBA
+JMP continue2
+MCB
+JMP start2
+
+@BASEADDR 2f00h
+
+
+@ALIAS One 01h
+
+LDB 01h
+LDA 01h
+OUTA
+start3:
+ADD
+OUTA
+MAC
+MBA
+JMP continue
+
+@ALIAS Number_Two 02h
+LDB Number_Two
+MCB
+JMP start3
+LDB 01h
+LDA 01h
+OUTA
+JMP continue3
+ADD
+OUTA
+MAC
+continue3:
+MBA
+JMP continue3
+MCB
+JMP start3
+
+@ALIAS One 01h
+
+LDB 01h
+LDA 01h
+OUTA
+start22:
+ADD
+OUTA
+MAC
+MBA
+JMP continue2
+
+@ALIAS Number_Two 02h
+LDB Number_Two
+MCB
+JMP start2
+LDB 01h
+LDA 01h
+OUTA
+JMP continue2
+ADD
+OUTA
+MAC
+continue22:
+MBA
+JMP continue2
+MCB
+JMP start2
+
+
