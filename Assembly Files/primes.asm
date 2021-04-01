@@ -2,12 +2,11 @@
 @ALIAS curr_num 0201h
 @ALIAS unflipped_page 00h
 @ALIAS flipped_page 01h
-@ALIAS stack_start
+@ALIAS stack_start ffh
 
  LDC stack_start
- LRH unflipped_page
  LDA 02h
- PUSHA
+ PUSHP unflipped_page
  INC
 
 mainloop:
@@ -20,24 +19,24 @@ check_prime:
 modulo_setup:
  SAC
  LDB stack_start
- COMPE
+ CMPE
  JME is_prime
- POPA unflipped_page
+ POPP unflipped_page
  MAB
  LRA curr_num
 
 modulo_loop:
  SUB
  CMPZ ; If 0, divisible
- JMZ not_prime
+ JME not_prime
  CMPL ; If 0, A < B and A is modulo
- JMZ modulo_setup
+ JNC modulo_setup
  JMP modulo_loop
 
 is_prime:
  LRC stack_ptr
  LRA curr_num
- PUSHA unflipped_page
+ PUSHP unflipped_page
  JMP return_loc
 
 not_prime:
@@ -47,22 +46,22 @@ not_prime:
 return_loc:
  INC
  CMPZ
- JE flip-stack
+ JME flip_stack
  INC ; skip even numbers
- COMPZ
+ CMPZ
  JNE mainloop
 
 flip_stack:
  LDB stack_start ; Set up other stack pointer
 
 flip_loop:
- POPA unflipped_page
+ POPP unflipped_page
  SBC
- PUSHA flipped_page
- LDA ff
- COMPE
+ PUSHP flipped_page
+ LDA stack_start
+ CMPE
  SBC
- JNE flip-loop
+ JNE flip_loop
 
 ; finished flipping stack (stack ptr in B)
  STB stack_ptr
@@ -74,7 +73,7 @@ print_loop:
  POPA
  OUTA
  MCA
- COMPE
+ CMPE
  JNE print_loop
  LRC stack_ptr
  LRH flipped_page
