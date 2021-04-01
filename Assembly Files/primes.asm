@@ -17,7 +17,7 @@ check_prime:
  STC stack_ptr
 
 modulo_setup:
- SAC
+ MCA
  LDB stack_start
  CMPE
  JME is_prime
@@ -56,6 +56,7 @@ flip_stack:
 
 flip_loop:
  POPP unflipped_page
+ OUTA
  SBC
  PUSHP flipped_page
  LDA stack_start
