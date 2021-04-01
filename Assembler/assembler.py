@@ -1,3 +1,7 @@
+'''
+CPU assembler
+'''
+
 import os
 import sys
 import argparse
@@ -59,7 +63,7 @@ INST_SET = {'ADD': {'code': '00', 'params': [], 'descr': 'Set A = A + B'},
             'PUSHP': {'code': '51', 'params': ['page'], 'descr': 'PUSHP [page (high order stack addr)'},
             'POPA': {'code': '52', 'params': [], 'descr': 'POPA (previous page addr)'},
             'POPP': {'code': '53', 'params': ['page'], 'descr': 'POPP [page]'},
-            'PUSHX': {'code': '54', 'params': ['addr'], 'descr': ''},
+            'PUSHX': {'code': '54', 'params': ['addr_l'], 'descr': ''},
             'RET': {'code': '55', 'params': [], 'descr': ''},
             'RTC': {'code': '56', 'params': [], 'descr': ''},
             'REQ': {'code': '57', 'params': [], 'descr': ''},
@@ -95,6 +99,7 @@ INST_SET = {'ADD': {'code': '00', 'params': [], 'descr': 'Set A = A + B'},
 aliases = {}
 
 class LabelManager():
+    'Class to keep track of labels in code'
 
     PL_H_STR = 'XXXX'
 
@@ -104,6 +109,7 @@ class LabelManager():
         self.debug = debug
 
     def add_label(self, name, address):
+        'Store a label and the address it points to when defined'
         if self.debug:
             print('Adding label', '"' + name + '"', 'pointing to address', dec_to_hex(int(address)))
         if name in self.labels:
@@ -112,6 +118,7 @@ class LabelManager():
         return True
 
     def add_placeholder(self, name, address):
+        'Store a reference to a not-yet-defined label'
         if name in self.placeholders:
             self.placeholders[name].append(dec_to_hex(int(address)))
         else:
@@ -121,6 +128,7 @@ class LabelManager():
         return self.PL_H_STR
 
     def resolve_refs(self, code, offset):
+        'Resolve all stored references to labels'
         max_offset = offset + int(len(code)/2)
         if self.debug:
             print('Resolving references between offset=', offset, 'and max=', max_offset)
@@ -147,24 +155,28 @@ class LabelManager():
         return code
 
     def label_exists(self, name):
+        'Check if a label exists'
         return name in self.labels
 
     def placeholder_exists(self, name):
+        'Check if a label has been referenced'
         return name in self.placeholders
 
     def get_label_address(self, name):
+        'Return the address of a label if defined'
         if name in self.labels:
             return self.labels[name]
         else:
             return None
 
 def print_instr_set():
+    'Print the instruction set'
     for instr in INST_SET:
         print(instr, 'Code=' + INST_SET[instr]['code'], 'Params=', INST_SET[instr]['params'], 'Descr=' + INST_SET[instr]['descr'])
 
 def add_alias(name, value_str, debug=False):
     if debug:
-        print('Adding alias', '"' + name + '"','with value', '"' + value_str + '"')
+        print('Adding alias', '"' + name + '"', 'with value', '"' + value_str + '"')
     aliases[name] = value_str
     return True
 
@@ -289,7 +301,7 @@ def process_line(line, at_address, debug=False):
         line = pre_process(line)
         command = parse_line(line)
         if command['label']:
-            if not(label_mgr.add_label(command['label'], at_address)):
+            if not label_mgr.add_label(command['label'], at_address):
                 ret_str = 'Error: Duplicate label definition'
         if command['instr']:
             if command['instr'] not in INST_SET:
@@ -487,7 +499,7 @@ if __name__ == '__main__':
 
     # Validate given offset
     if not valid_offset(int(args.offset, 16)):
-        print('Offset has to be a multiple of 64 (40h), given', int(offset, 16))
+        print('Offset has to be a multiple of 64 (40h), given', int(args.offset, 16))
         print('Errors found, exiting')
         sys.exit()
 
