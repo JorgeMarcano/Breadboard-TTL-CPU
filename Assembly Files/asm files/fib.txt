@@ -1,0 +1,8 @@
+ LDB 01h
+ LDA 01h
+ OUTA
+loop:
+ ADD
+ OUTA
+ SAB
+ JMP loop

@@ -1,0 +1,23 @@
+@ALIAS start_val 01h
+@ALIAS stack_start ffh
+@ALIAS stack_page 00h
+
+ LDA start_val
+ LDC stack_start
+ LRH stack_page
+
+loop_inc:
+ PUSHA
+ OUTA
+ MAB
+ ADD
+ CMPZ
+ JNE loop_inc
+
+ LDB 02h
+loop_dec: 
+ POPA
+ OUTA
+ CMPL
+ JMC loop_dec
+ JMP loop_inc

@@ -1,0 +1,27 @@
+start_val = 01h
+stack_start = ffh
+stack_page = 00h
+
+ LDA start_val
+ LDC stack_start
+ LRH stack_page
+
+loop:
+ PUSHA 1
+ OUTA  1
+ MAB
+ ADD
+ PUSHA 2
+ OUTA  2
+ MAB
+ ADD
+ PUSHA 3
+ POPA  3
+ OUTA  3
+ NOP
+ NOP
+ POPA  2
+ OUTA  2
+ NOP
+ NOP
+ JMP loop
