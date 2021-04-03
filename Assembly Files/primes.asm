@@ -78,4 +78,5 @@ print_loop:
  JNE print_loop
  LRC stack_ptr
  LRH flipped_page
+ HALT
  JMP print_loop
