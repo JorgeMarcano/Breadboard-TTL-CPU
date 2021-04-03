@@ -108,6 +108,9 @@ class LabelManager():
         self.placeholders = {}
         self.debug = debug
 
+    def set_debug(self, debug=False):
+        self.debug = debug
+
     def add_label(self, name, address):
         'Store a label and the address it points to when defined'
         if self.debug:
@@ -173,6 +176,13 @@ def print_instr_set():
     'Print the instruction set'
     for instr in INST_SET:
         print(instr, 'Code=' + INST_SET[instr]['code'], 'Params=', INST_SET[instr]['params'], 'Descr=' + INST_SET[instr]['descr'])
+
+def get_instr_from_code(code):
+    'Print the instruction info given the code'
+    for instr in INST_SET:
+        if INST_SET[instr]['code'] == code:
+            return instr + ' (' + INST_SET[instr]['descr'] + ')'
+    return ''
 
 def add_alias(name, value_str, debug=False):
     if debug:
@@ -468,8 +478,20 @@ def read_args():
     parser.add_argument('-s', '--step-trans', action='store_true', help='Print step-by-step code translation', dest='steps')
     parser.add_argument('-i', '--instruction-set', action='store_true', help='Print instruction set and exit')
     return parser.parse_args()
+    
+    # Print instruction set if needed and exit
+    if args.instruction_set:
+        print_instr_set()
+        sys.exit()
+
+    # Validate given offset
+    if not valid_offset(int(args.offset, 16)):
+        print('Offset has to be a multiple of 64 (40h), given', int(args.offset, 16))
+        print('Errors found, exiting')
+        sys.exit()
 
 def translate_file(infile, offset, steps=False, debug=False):
+
     print('Reading program from file', infile)
     lines = read_file(infile, debug)
     if not lines:
@@ -483,25 +505,14 @@ def translate_file(infile, offset, steps=False, debug=False):
         sys.exit()
     return code
 
+# Init handlers
+label_mgr = LabelManager()
+
 if __name__ == '__main__':
     print('Microprocessor code assembler. Version 0.1')
 
     # Read command line arguments
     args = read_args()
-
-    # Init handlers
-    label_mgr = LabelManager(args.debug)
-
-    # Print instruction if needed
-    if args.instruction_set:
-        print_instr_set()
-        sys.exit()
-
-    # Validate given offset
-    if not valid_offset(int(args.offset, 16)):
-        print('Offset has to be a multiple of 64 (40h), given', int(args.offset, 16))
-        print('Errors found, exiting')
-        sys.exit()
 
     # Get the intput file name
     if args.infile:
@@ -509,6 +520,8 @@ if __name__ == '__main__':
     else:
         infile = input('Name of input file? ')
 
+    # Translate assembler code in file
+    label_mgr.set_debug(args.debug)
     code = translate_file(infile, args.offset, args.steps, args.debug)
 
     # Format and save
