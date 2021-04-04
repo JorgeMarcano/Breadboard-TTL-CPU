@@ -286,9 +286,9 @@ class Cpu():
 
     def set_pc(self, value, pos):
         if pos == 'LOW':
-            self.pc_low = value
+            self.pc_low = value.zfill(2)
         elif pos == 'HIGH':
-            self.pc_high = value
+            self.pc_high = value.zfill(2)
         self.pc_ptr = int(self.pc_high, 16) * 256 + int(self.pc_low, 16)
 
     def get_alu(self, oper):
@@ -320,8 +320,8 @@ class Cpu():
         if value_low == 256:
             value_low = 0
             value_hi = value_hi + 1
-        self.pc_low = hex(value_low)[2:]
-        self.pc_high = hex(value_hi)[2:]
+        self.pc_low = hex(value_low)[2:].zfill(2)
+        self.pc_high = hex(value_hi)[2:].zfill(2)
         self.pc_ptr = int(self.pc_high, 16) * 256 + int(self.pc_low, 16)
 
     def load_rom(self, program):

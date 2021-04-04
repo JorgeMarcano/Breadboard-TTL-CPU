@@ -223,7 +223,7 @@ def validate_hex(in_str, max_len):
     if len(in_str) == 1:
         return 'Error: Bad hex constant format (invalid)'
     in_str = in_str[:-1]
-    return pad_hex_str(in_str, max_len)
+    return in_str.zfill(max_len)
 
 def validate_params(command, at_address, debug):
     #print(command['instr'], command['params'])
@@ -254,17 +254,7 @@ def validate_params(command, at_address, debug):
     return ret_str
 
 def dec_to_hex(dec_value, places=4):
-    hex_value = hex(dec_value)[2:]
-    if len(hex_value) < places:
-        while len(hex_value) < places:
-            hex_value = '0' + hex_value
-    return hex_value
-
-def pad_hex_str(in_str, places=4):
-    if len(in_str) < places:
-        while len(in_str) < places:
-            in_str = '0' + in_str
-    return in_str
+    return hex(dec_value)[2:].zfill(places)
 
 def pad_line(in_str, pad='ff', length=128):
     if len(in_str) < length:
@@ -339,7 +329,7 @@ def format_code(code, ruler=False, pad=True, debug=False):
             if debug:
                 print('chunk=', count, entry)
             if pad:
-                padded_line = pad_line(entry)
+                padded_line = entry.ljust(128, 'f')
             else:
                 padded_line = entry
             line1 = padded_line[:64]
