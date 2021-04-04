@@ -37,4 +37,5 @@ Here's the help for the simulator
                             Specify starting address for assembler (default:
                             0x0000)
       -d, --debug           Print debug information (default: False)
+      -m, --mcode-debug     Print microcode debug information (default: False)
       -i, --interactive     Show prompt for interactive run (default: False)

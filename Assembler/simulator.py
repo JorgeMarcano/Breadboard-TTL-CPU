@@ -59,6 +59,26 @@ class CmdLine(cmd.Cmd):
         'Print CPU Status'
         cpu.print_cpu()
 
+    def do_debug(self, arg):
+        'Set CPU instruction debug flag (true, false)'
+        option = arg.lower()
+        if option == 'true':
+            cpu.set_debug(True)
+        elif option == 'false':
+            cpu.set_debug(False)
+        else:
+            print('Invalid option "' + arg + '"')
+
+    def do_mcdebug(self, arg):
+        'Set CPU microcode debug flag (true, false)'
+        option = arg.lower()
+        if option in ('true', 'on'):
+            cpu.set_mc_debug(True)
+        elif option in ('false', 'off'):
+            cpu.set_mc_debug(False)
+        else:
+            print('Invalid option "' + arg + '"')
+
     def do_exit(self, arg):
         'Exit simulator'
         sys.exit()
@@ -75,20 +95,30 @@ class CmdLine(cmd.Cmd):
         cpu.load_rom(program)
 
     def do_run(self, arg):
-        'Run CPU'
+        'Run CPU program in ROM'
         print('Before CPU state')
         cpu.print_cpu()
-        cpu.exec_prog()
+        try:
+            cpu.exec_prog()
+        except KeyboardInterrupt:
+            print('Interrupted...')
+        print()
         print('Final CPU state')
         cpu.print_cpu()
 
     def do_step(self, arg):
         'Run one instruction'
-        # print('Before CPU state')
-        # cpu.print_cpu()
-        cpu.exec_one()
+        cpu.exec_one_instr()
+        print()
         print('After CPU state')
         cpu.print_cpu()
+
+    def do_mstep(self, arg):
+        'Run one micro instruction'
+        cpu.exec_one_microinstr()
+        print()
+        print('After CPU state')
+        cpu.print_mcode_status()
 
     def do_reset(self, arg):
         'Reset CPU'
@@ -99,10 +129,13 @@ class Cpu():
 
     DEFAULT_ROM = 'ff'
     DEFAULT_RAM = 'ff'
+    NO_OP_MAX = 10
 
-    def __init__(self, microcode=None, debug=False):
-        self.debug = debug
+    def __init__(self, microcode=None, debug=False, mc_debug=False):
         self.microcode = microcode
+        self.debug = debug
+        self.mc_debug = mc_debug
+        self.rom = {}
         self.reset()
 
     def reset(self):
@@ -119,10 +152,15 @@ class Cpu():
         self.pc_low = '00'
         self.pc_high = '00'
         self.pc_ptr = 0
-        self.rom = {}
         self.carry_flag = False
         self.equal_flag = False
         self.halted = False
+        self.init_microcode()
+        self.no_op_count = 0
+
+    def init_microcode(self):
+        self.mic = 0
+        self.set_current_mcode(self.get_rom())
 
     def program_cpu(self, microcode):
         self.microcode = microcode
@@ -221,9 +259,6 @@ class Cpu():
             else:
                 self.carry_flag = False
 
-    def get_current_microcode(self):
-        pass
-
     def get_ram(self):
         if self.ram_ptr in self.ram:
             return self.ram[self.ram_ptr]
@@ -293,71 +328,115 @@ class Cpu():
         for address in program:
             prog_bytes = [program[address][i:i+2] for i in range(0, len(program[address]), 2)]
             self.load_code(address, prog_bytes)
+        self.init_microcode()
 
     def load_code(self, address, code):
         cur_addr = address
         for index in range(len(code)):
             self.burn_rom(address + index, code[index])
 
-    def exec_instr(self):
-        # Retrieve instruction pointed by pc_ptr
-        instr = self.get_rom()
-        if self.debug:
-            print('Instruction=', instr)
-        if instr == 'ff':
-            return False
-        # Get respective microcode
-        code = self.get_microcode(instr)
-        # Put the common code in front
-        code = ['PO & II', 'PIN'] + code
-        if self.debug:
-            print('Code=', code)
+    # def exec_instr(self):
         # Execute all microcode
-        for item in code:
-            self.chip_to_bus(item)
-            self.bus_to_chip(item)
-        return True
+        # while self.exec_one_microinstr():
+            # pass
+
+    def exec_one_microinstr(self):
+        if self.mc_debug:
+            self.print_mcode_status()
+        if self.mic < len(self.cur_mcode):
+            self.chip_to_bus(self.cur_mcode[self.mic])
+            self.bus_to_chip(self.cur_mcode[self.mic])
+            self.mic = self.mic + 1
+            return True
+        else:
+            # Current microcode is not done:
+            # - Retrieve instruction pointed by pc_ptr
+            # - Reset mic
+            instr = self.get_rom()
+            if self.debug:
+                print('Loading instruction=', instr, '=', asm.get_instr_from_code(self.get_rom()))
+            # Fuse to avoid infinite loops
+            if instr == 'ff':
+                self.no_op_count = self.no_op_count + 1
+                if self.no_op_count > self.NO_OP_MAX:
+                    self.halt()
+                    print('Executed more that', self.NO_OP_MAX, 'NOP instructions, halting...')
+            else:
+                self.no_op_count = 0
+            # Initialize current microcode
+            self.set_current_mcode(instr)
+            return False
+
+    def set_current_mcode(self, instr):
+        self.cur_mcode = self.get_microcode(instr)
+        if self.mc_debug:
+            print('Setting mCode=', self.cur_mcode)
+        self.mic = 0
 
     def get_microcode(self, instr):
         if not self.carry_flag and not self.equal_flag:
-            return self.microcode['base'][instr]
+            version = 'base'
         if self.carry_flag and not self.equal_flag:
-            return self.microcode['flaggedCarry'][instr]
+            version = 'flaggedCarry'
         if not self.carry_flag and self.equal_flag:
-            return self.microcode['flaggedEqual'][instr]
+            version = 'flaggedEqual'
         if self.carry_flag and self.equal_flag:
-            return self.microcode['flaggedBoth'][instr]
+            version = 'flaggedBoth'
+        return self.microcode[version][instr]
 
     def exec_prog(self):
         print('Starting execution of program')
+        # Run instructions until halted
         while not self.halted:
-            self.exec_one()
+            self.exec_one_instr()
 
-    def exec_one(self):
-        ret = self.exec_instr()
-        if not ret:
-            self.halt()
+    def exec_one_instr(self):
+        while self.exec_one_microinstr():
+            pass
         if self.debug:
             self.print_cpu()
-
 
     def halt(self):
         self.halted = True
 
-    def print_cpu(self):
-        print('================================')
-        print('Halted?', self.halted)
+    def set_debug(self, option):
+        self.debug = option
+    
+    def set_mc_debug(self, option):
+        self.mc_debug = option
+
+    def print_mcode_status(self):
+        print('--------------------------------')
+        print('Microinstr ctr =', self.mic, 'Done =', self.mic >= len(self.cur_mcode))
+        print('Current mcode =', list(enumerate(self.cur_mcode)))
+
+    def print_regs_flags(self):
+        print('--------------------------------')
         print('Reg A=', self.reg_a, '(', int(self.reg_a, 16), ')  Reg B=', self.reg_b, '(', int(self.reg_b, 16), ')')
         print('Reg C=', self.reg_c, '(', int(self.reg_c, 16), ')  Reg D=', self.reg_d, '(', int(self.reg_d, 16), ')')
         print('Output Reg=', self.reg_o, '(', int(self.reg_o, 16), ')')
         print('Bus data=', self.bus, '(', int(self.reg_o, 16), ')')
         print('Carry and Equal flags=', self.carry_flag, ',', self.equal_flag)
+
+    def print_ram(self):
+        print('--------------------------------')
         print('RAM Addr=', self.ram_ptr, '(', self.ram_high, self.ram_low, ') ->', self.get_ram())
         print('RAM')
         print(self.ram)
+
+    def print_rom(self):
+        print('--------------------------------')
         print('PC Addr=', self.pc_ptr, '(', self.pc_high, self.pc_low, ') ->', self.get_rom(), '=', asm.get_instr_from_code(self.get_rom()))
         print('ROM')
         print(self.rom)
+
+    def print_cpu(self):
+        print('================================')
+        print('Halted?', self.halted)
+        self.print_regs_flags()
+        self.print_ram()
+        self.print_rom()
+        self.print_mcode_status()
         print('================================')
 
 def read_args():
@@ -365,6 +444,7 @@ def read_args():
     parser.add_argument('infile', nargs='?', type=str, default=None, help='Text file with assembler program')
     parser.add_argument('-b', '--base', type=str, help='Specify starting address for assembler', default='0x0000', dest='offset')
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug information')
+    parser.add_argument('-m', '--mcode-debug', action='store_true', help='Print microcode debug information')
     parser.add_argument('-i', '--interactive', action='store_true', help='Show prompt for interactive run')
     return parser.parse_args()
 
@@ -381,11 +461,20 @@ def read_microcode(file_name, debug=False):
     all_code = {}
     code_list = []
     version = ''
+    read_common = False
     for line in lines:
         # Discard comments //...
         code = line.split('//')[0].strip()
         if code:
-            # If line starts with 'Code' the it is a version start
+            # If line contains startCode then the next line is the common microcode
+            if 'startCode' in code:
+                read_common = True
+                continue
+            if read_common:
+                common = [x.strip() for x in code.split(',')]
+                read_common = False
+                continue
+            # If line starts with 'Code' then it is the start of a new version
             if code.startswith('Code'):
                 version = code[5:].split('[')[0].strip()
                 all_code[version] = []
@@ -404,7 +493,7 @@ def read_microcode(file_name, debug=False):
         for item in all_code[version]:
             #print(item)
             code = item[3:5]
-            seq = [x.strip() for x in item.split('{')[-1].split('}')[0].split(',')]
+            seq = common + [x.strip() for x in item.split('{')[-1].split('}')[0].split(',')]
             microcode[version][code] = seq
     # Add base version code to the other three versions
     if debug:
@@ -433,7 +522,7 @@ if __name__ == '__main__':
 
     # Read microcode definitions
     microcode = read_microcode(SRC_MICROCODE, args.debug)
-    cpu = Cpu(microcode, args.debug)
+    cpu = Cpu(microcode, args.debug, args.mcode_debug)
 
     # Get the intput file name
     if args.infile:
