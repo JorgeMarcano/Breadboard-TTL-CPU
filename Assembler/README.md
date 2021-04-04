@@ -1,4 +1,4 @@
-## Assembler
+## Assembler & Simulator
 
 Here's a short guide on how to use assembler.py
 
@@ -36,6 +36,7 @@ Here's the help for the simulator
       -b OFFSET, --base OFFSET
                             Specify starting address for assembler (default:
                             0x0000)
+      -s, --step-trans      Print step-by-step code translation (default: False)
       -d, --debug           Print debug information (default: False)
       -m, --mcode-debug     Print microcode debug information (default: False)
       -i, --interactive     Show prompt for interactive run (default: False)

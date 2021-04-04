@@ -457,6 +457,7 @@ def read_args():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('infile', nargs='?', type=str, default=None, help='Text file with assembler program')
     parser.add_argument('-b', '--base', type=str, help='Specify starting address for assembler', default='0x0000', dest='offset')
+    parser.add_argument('-s', '--step-trans', action='store_true', help='Print step-by-step code translation', dest='steps')
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug information')
     parser.add_argument('-m', '--mcode-debug', action='store_true', help='Print microcode debug information')
     parser.add_argument('-i', '--interactive', action='store_true', help='Show prompt for interactive run')
@@ -549,13 +550,13 @@ if __name__ == '__main__':
     asm.label_mgr.set_debug(args.debug)
     if args.interactive:
         if args.infile:
-            program = asm.translate_file(infile, args.offset, False, args.debug)
+            program = asm.translate_file(infile, args.offset, args.steps, args.debug)
             cpu.load_rom(program)
         print('Initial CPU state')
         cpu.print_cpu()
         CmdLine().cmdloop()
     else:
-        program = asm.translate_file(infile, args.offset, False, args.debug)
+        program = asm.translate_file(infile, args.offset, args.steps, args.debug)
         #print(asm.INST_SET)
         #print(program)
         cpu.load_rom(program)
