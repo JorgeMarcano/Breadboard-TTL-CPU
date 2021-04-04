@@ -8,6 +8,7 @@ import argparse
 from collections import namedtuple
 import assembler as asm
 import cmd
+import time
 
 SRC_MICROCODE = r'..\Microcode\microcode.h'
 
@@ -62,9 +63,9 @@ class CmdLine(cmd.Cmd):
     def do_debug(self, arg):
         'Set CPU instruction debug flag (true, false)'
         option = arg.lower()
-        if option == 'true':
+        if option in ('true', 'on'):
             cpu.set_debug(True)
-        elif option == 'false':
+        elif option in ('false', 'off'):
             cpu.set_debug(False)
         else:
             print('Invalid option "' + arg + '"')
@@ -120,6 +121,17 @@ class CmdLine(cmd.Cmd):
         print('After CPU state')
         cpu.print_mcode_status()
 
+    def do_setpc(self, arg):
+        'Set program counter to value (hex)'
+        try:
+            value = int(arg, 16)
+            pc = arg.lower().zfill(4)
+            cpu.set_pc(pc[:2], 'HIGH')
+            cpu.set_pc(pc[2:], 'LOW')
+        except ValueError:
+            print('Invalid hex value')
+        
+
     def do_reset(self, arg):
         'Reset CPU'
         cpu.reset()
@@ -131,8 +143,9 @@ class Cpu():
     DEFAULT_RAM = 'ff'
     NO_OP_MAX = 10
 
-    def __init__(self, microcode=None, debug=False, mc_debug=False):
+    def __init__(self, microcode=None, clock_period=0, debug=False, mc_debug=False):
         self.microcode = microcode
+        self.clock_period = clock_period
         self.debug = debug
         self.mc_debug = mc_debug
         self.rom = {}
@@ -392,7 +405,8 @@ class Cpu():
 
     def exec_one_instr(self):
         while self.exec_one_microinstr():
-            pass
+            if self.clock_period > 0:
+                time.sleep(self.clock_period)
         if self.debug:
             self.print_cpu()
 
@@ -446,6 +460,7 @@ def read_args():
     parser.add_argument('-d', '--debug', action='store_true', help='Print debug information')
     parser.add_argument('-m', '--mcode-debug', action='store_true', help='Print microcode debug information')
     parser.add_argument('-i', '--interactive', action='store_true', help='Show prompt for interactive run')
+    parser.add_argument('-p', '--clock-period', type=float, default=0, help='Micro instruction clock period (ms), 0 for full speed')
     return parser.parse_args()
 
 def read_microcode(file_name, debug=False):
@@ -522,7 +537,7 @@ if __name__ == '__main__':
 
     # Read microcode definitions
     microcode = read_microcode(SRC_MICROCODE, args.debug)
-    cpu = Cpu(microcode, args.debug, args.mcode_debug)
+    cpu = Cpu(microcode, args.clock_period / 1000.0, args.debug, args.mcode_debug)
 
     # Get the intput file name
     if args.infile:
@@ -546,7 +561,10 @@ if __name__ == '__main__':
         cpu.load_rom(program)
         print('Initial CPU state')
         cpu.print_cpu()
-        cpu.exec_prog()
+        try:
+            cpu.exec_prog()
+        except KeyboardInterrupt:
+            print('Interrupted...')
         print('Final CPU state')
         cpu.print_cpu()
 
