@@ -24,7 +24,10 @@ class CmdLine(cmd.Cmd):
         # Get base folder
         print()
         print('Entering interactive mode')
-        self.print_all_help()
+        print('Initial CPU state')
+        cpu.print_cpu()
+        self.do_help('')
+
 
     # def precmd(self, line):
         # print()
@@ -32,12 +35,10 @@ class CmdLine(cmd.Cmd):
 
     def postcmd(self, stop, line):
         print()
-        # self.print_all_help()
-        # print()
-        # return stop
 
-    def print_all_help(self):
-        # Print help for all commands. Inspired from cmd.py :-)
+    # ----- commands -----
+    def do_allhelp(self, arg):
+        'Print help for all commands'
         names = self.get_names()
         cmds_doc = []
         cmds_undoc = []
@@ -55,7 +56,6 @@ class CmdLine(cmd.Cmd):
                     print(cmd + ': ', end = '')
                     self.do_help(cmd)
 
-    # ----- commands -----
     def do_print(self, arg):
         'Print CPU Status'
         cpu.print_cpu()
@@ -97,14 +97,12 @@ class CmdLine(cmd.Cmd):
 
     def do_run(self, arg):
         'Run CPU program in ROM'
-        print('Before CPU state')
-        cpu.print_cpu()
         try:
             cpu.exec_prog()
         except KeyboardInterrupt:
             print('Interrupted...')
         print()
-        print('Final CPU state')
+        print('Current CPU state')
         cpu.print_cpu()
 
     def do_step(self, arg):
@@ -121,6 +119,10 @@ class CmdLine(cmd.Cmd):
         print('After CPU state')
         cpu.print_mcode_status()
 
+    def do_cont(self, arg):
+        'Clear the Halt flag'
+        cpu.unhalt()
+
     def do_setpc(self, arg):
         'Set program counter to value (hex)'
         try:
@@ -130,7 +132,31 @@ class CmdLine(cmd.Cmd):
             cpu.set_pc(pc[2:], 'LOW')
         except ValueError:
             print('Invalid hex value')
-        
+
+    def do_setb(self, arg):
+        'Set a breakpoint at a ROM address'
+        if not arg:
+            addr = input('ROM address (hex)? ')
+        else:
+            addr = arg
+        try:
+            addr = int(addr, 16)
+            cpu.set_break(addr)
+        except ValueError:
+            print('Invalid hex value')
+            return
+
+    def do_delb(self, arg):
+        'Delete a breakpoint for given ROM address'
+        if not arg:
+            addr = input('ROM address (hex)? ')
+        else:
+            addr = arg
+        cpu.clr_break(addr)
+
+    def do_delallb(self, arg):
+        'Delete all breakpoints'
+        cpu.reset_breaks()
 
     def do_reset(self, arg):
         'Reset CPU'
@@ -149,6 +175,7 @@ class Cpu():
         self.debug = debug
         self.mc_debug = mc_debug
         self.rom = {}
+        self.break_pts = set()
         self.reset()
 
     def reset(self):
@@ -320,11 +347,8 @@ class Cpu():
             res = self.dec_to_hex((val_a + 1) % 256)
         return res
 
-    def dec_to_hex(self, value):
-        res = hex(value)[2:]
-        if value < 16:
-            res = '0'+ res
-        return res
+    def dec_to_hex(self, value, places=2):
+        return hex(value)[2:].zfill(places)
 
     def pc_inc(self):
         value_low = int(self.pc_low, 16)
@@ -362,8 +386,13 @@ class Cpu():
             self.mic = self.mic + 1
             return True
         else:
-            # Current microcode is not done:
-            # - Retrieve instruction pointed by pc_ptr
+            # Check if pc is a breakpoint
+            if self.pc_ptr in self.break_pts:
+                print('Found breakpoint at address')
+                print('PC Addr=', self.pc_ptr, '(', self.pc_high, self.pc_low, ') ->', self.get_rom(), '=', asm.get_instr_from_code(self.get_rom()))
+                self.halt()
+            # Current microcode is done:
+            # - Retrieve next instruction as pointed by pc_ptr
             # - Reset mic
             instr = self.get_rom()
             if self.debug:
@@ -413,11 +442,24 @@ class Cpu():
     def halt(self):
         self.halted = True
 
+    def unhalt(self):
+        self.halted = False
+
     def set_debug(self, option):
         self.debug = option
     
     def set_mc_debug(self, option):
         self.mc_debug = option
+
+    def set_break(self, addr):
+        self.break_pts.add(addr)
+
+    def clr_break(self, addr):
+        if addr in self.break_pts:
+            self.break_pts.remove(addr)
+
+    def reset_breaks(self):
+        self.break_pts = set()
 
     def print_mcode_status(self):
         print('--------------------------------')
@@ -444,6 +486,10 @@ class Cpu():
         print('ROM')
         print(self.rom)
 
+    def print_breaks(self):
+        print('--------------------------------')
+        print('Breaks =', ', '.join([ str(x) + '(' + self.dec_to_hex(x, 4) + 'h)' for x in sorted(self.break_pts)]))
+
     def print_cpu(self):
         print('================================')
         print('Halted?', self.halted)
@@ -451,6 +497,7 @@ class Cpu():
         self.print_ram()
         self.print_rom()
         self.print_mcode_status()
+        self.print_breaks()
         print('================================')
 
 def read_args():
@@ -552,8 +599,6 @@ if __name__ == '__main__':
         if args.infile:
             program = asm.translate_file(infile, args.offset, args.steps, args.debug)
             cpu.load_rom(program)
-        print('Initial CPU state')
-        cpu.print_cpu()
         CmdLine().cmdloop()
     else:
         program = asm.translate_file(infile, args.offset, args.steps, args.debug)
